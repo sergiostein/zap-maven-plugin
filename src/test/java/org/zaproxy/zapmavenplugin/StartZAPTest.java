@@ -88,7 +88,7 @@ public class StartZAPTest {
 
     private Core prepareCoreForNewSession() throws ClientApiException {
         Core coreMock = EasyMock.createMock(Core.class);
-        EasyMock.expect(coreMock.newSession(EasyMock.anyString())).andReturn(ApiResponseElement.OK);
+        EasyMock.expect(coreMock.newSession(EasyMock.anyString(), null, null)).andReturn(ApiResponseElement.OK);
         clientApi.core = coreMock;
         return coreMock;
     }

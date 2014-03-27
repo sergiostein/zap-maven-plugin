@@ -113,7 +113,7 @@ public class StartZAP
         ClientApi zapClient = getZapClient();
         File tempFile = File.createTempFile("ZAP", null);
         getLog().info("Create Session with temporary file [" + tempFile.getPath() + "]");
-        zapClient.core.newSession(tempFile.getPath());
+        zapClient.core.newSession(tempFile.getPath(), null, null);
     }
 
     private Process startZap() throws IOException {

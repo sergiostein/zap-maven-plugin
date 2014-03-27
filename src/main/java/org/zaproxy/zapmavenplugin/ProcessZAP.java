@@ -55,7 +55,7 @@ public class ProcessZAP extends AbstractMojo {
     /**
      * Location of the host of the ZAP proxy
      *
-     * @parameter expression="${zapProxyHost}" default-value="localhost"
+     * @parameter property="zapProxyHost" default-value="localhost"
      * @required
      */
     private String zapProxyHost;
@@ -107,7 +107,7 @@ public class ProcessZAP extends AbstractMojo {
     /**
      * Save session of scan
      *
-     * @parameter expression="${reportAlerts}" default-value="true"
+     * @parameter property="reportAlerts" default-value="true"
      */
     private boolean reportAlerts;
 
@@ -187,7 +187,7 @@ public class ProcessZAP extends AbstractMojo {
      * @throws ClientApiException
      */
     private void spiderURL(String url) throws ClientApiException {
-        zapClientAPI.spider.scan(url);
+        zapClientAPI.spider.scan(url, null);
 
         while ( statusToInt(zapClientAPI.spider.status()) < 100) {
             try {
@@ -205,7 +205,7 @@ public class ProcessZAP extends AbstractMojo {
      * @throws ClientApiException
      */
     private void scanURL(String url) throws ClientApiException {
-        zapClientAPI.ascan.scan(url, "true", "false");
+        zapClientAPI.ascan.scan(url, "true", "false", null);
 
         while ( statusToInt(zapClientAPI.ascan.status()) < 100) {
             try {
@@ -317,7 +317,7 @@ public class ProcessZAP extends AbstractMojo {
 
                 fileName = createTempFilename("ZAP", "");
 
-                zapClientAPI.core.saveSession(fileName);
+                zapClientAPI.core.saveSession(fileName, null, null);
             } else {
                 getLog().info("skip saveSession");
             }
@@ -356,7 +356,7 @@ public class ProcessZAP extends AbstractMojo {
             if (shutdownZAP && (zapClientAPI != null)) {
                 try {
                     getLog().info("Shutdown ZAProxy");
-                    zapClientAPI.core.shutdown();
+                    zapClientAPI.core.shutdown("..");
                 } catch (Exception e) {
                     getLog().error(e.toString());
                     e.printStackTrace();
