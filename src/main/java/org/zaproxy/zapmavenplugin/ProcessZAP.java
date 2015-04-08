@@ -14,8 +14,6 @@ package org.zaproxy.zapmavenplugin;
  */
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.InetSocketAddress;
@@ -25,14 +23,13 @@ import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.UUID;
 
-import net.sf.json.JSON;
-import net.sf.json.JSONSerializer;
-import net.sf.json.xml.XMLSerializer;
-
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
+import org.apache.maven.plugins.annotations.LifecyclePhase;
+import org.apache.maven.plugins.annotations.Mojo;
+import org.apache.maven.plugins.annotations.Parameter;
 import org.zaproxy.clientapi.core.ApiResponse;
 import org.zaproxy.clientapi.core.ApiResponseElement;
 import org.zaproxy.clientapi.core.ClientApi;
@@ -40,112 +37,101 @@ import org.zaproxy.clientapi.core.ClientApiException;
 
 /**
  * Goal which touches a timestamp file.
- *
- * @goal process-zap
- * @phase post-integration-test
  */
-public class ProcessZAP extends AbstractMojo {
+@Mojo(name = "process-zap", defaultPhase = LifecyclePhase.POST_INTEGRATION_TEST, threadSafe = true)
+public class ProcessZAP extends AbstractMojo
+{
     private static final String NONE_FORMAT = "none";
 
     private static final String JSON_FORMAT = "json";
 
-    private ClientApi zapClientAPI;
-    private Proxy proxy;
+    private static final String HTML_FORMAT = "html";
 
-    /**
-     * Location of the host of the ZAP proxy
-     *
-     * @parameter property="zapProxyHost" default-value="localhost"
-     * @required
-     */
-    private String zapProxyHost;
+    private static final String XML_FORMAT  = "xml";
 
-    /**
-     * Location of the port of the ZAP proxy
-     *
-     * @parameter default-value="8080"
-     * @required
-     */
-    private int zapProxyPort;
-
-    /**
-     * Location of the port of the ZAP proxy
-     *
-     * @parameter
-     * @required
-     */
-    private String targetURL;
+    private ClientApi           zapClientAPI;
+    private Proxy               proxy;
 
     /**
      * API token of the ZAP proxy
      * Change this if you have set the apikey in ZAP via Options / API
-     *
-     * @parameter default-value=""
      */
-    private String apikey;
-    
+    @Parameter(defaultValue = "ZAP-MAVEN-PLUGIN")
+    public String               apiKey;
+
+    /**
+     * Location of the host of the ZAP proxy
+     */
+    @Parameter(defaultValue = "localhost", required = true)
+    private String              zapProxyHost;
+
+    /**
+     * Location of the port of the ZAP proxy
+     */
+    @Parameter(defaultValue = "8080", required = true)
+    private int                 zapProxyPort;
+
+    /**
+     * Location of the port of the ZAP proxy
+     */
+    @Parameter(required = true)
+    private String              targetURL;
+
     /**
      * Switch to spider the URL
-     *
-     * @parameter default-value="true"
      */
-    private boolean spiderURL;
+    @Parameter(defaultValue = "true")
+    private boolean             spiderURL;
 
     /**
      * Switch to scan the URL
-     *
-     * @parameter default-value="true"
      */
-    private boolean scanURL;
+    @Parameter(defaultValue = "true")
+    private boolean             scanURL;
 
     /**
      * Save session of scan
-     *
-     * @parameter default-value="true"
      */
-    private boolean saveSession;
+    @Parameter(defaultValue = "true")
+    private boolean             saveSession;
 
     /**
      * Switch to shutdown ZAP
-     *
-     * @parameter default-value="true"
      */
-    private boolean shutdownZAP;
+    @Parameter(defaultValue = "true")
+    private boolean             shutdownZAP;
 
     /**
      * Save session of scan
-     *
-     * @parameter property="reportAlerts" default-value="true"
      */
-    private boolean reportAlerts;
+    @Parameter(defaultValue = "true")
+    private boolean             reportAlerts;
 
     /**
      * Location to store the ZAP reports
-     *
-     * @parameter default-value="${project.build.directory}/zap-reports"
      */
-    private String reportsDirectory;
+    @Parameter(defaultValue = "${project.build.directory}/zap-reports")
+    private String              reportsDirectory;
 
     /**
-     * Set the output format type, in addition to the XML report. Must be one of "none" or "json".
-     *
-     * @parameter default-value="none"
+     * Set the output format type, in addition to the XML report. Must be one of "none", "json", "xml", "html".
      */
-    private String format;
+    @Parameter(defaultValue = "none")
+    private String              format;
 
     /**
      * Set the plugin to skip its execution.
-     *
-     * @parameter default-value="false"
      */
-    private boolean skip;
+    @Parameter(defaultValue = "false")
+    private boolean             skip;
 
     /**
      * create a Timestamp
      *
      * @return
      */
-    private String dateTimeString() {
+    private String dateTimeString()
+    {
         Calendar cal = Calendar.getInstance();
         SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMddHHmmss");
         return sdf.format(cal.getTime());
@@ -155,12 +141,13 @@ public class ProcessZAP extends AbstractMojo {
      * create a temporary filename
      *
      * @param prefix
-     *            if null, then default "temp"
+     * if null, then default "temp"
      * @param suffix
-     *            if null, then default ".tmp"
+     * if null, then default ".tmp"
      * @return
      */
-    private String createTempFilename(String prefix, String suffix) {
+    private String createTempFilename(String prefix, String suffix)
+    {
         StringBuilder sb = new StringBuilder("");
         if (prefix != null)
             sb.append(prefix);
@@ -184,8 +171,9 @@ public class ProcessZAP extends AbstractMojo {
      * @param response the ZAP APIresponse code
      * @return
      */
-    private int statusToInt(ApiResponse response) {
-        return Integer.parseInt(((ApiResponseElement)response).getValue());
+    private int statusToInt(ApiResponse response)
+    {
+        return Integer.parseInt(((ApiResponseElement) response).getValue());
     }
 
     /**
@@ -194,29 +182,33 @@ public class ProcessZAP extends AbstractMojo {
      * @param url the to investigate URL
      * @throws ClientApiException
      */
-    private void spiderURL(String apikey, String url) throws ClientApiException {
-    	
-		String scanid = getScanid(apikey, url);
-		
-        zapClientAPI.spider.scan(apikey, url, null);
+    private void spiderURL(String url) throws ClientApiException
+    {
 
-        while ( statusToInt(zapClientAPI.spider.status(scanid)) < 100) {
-            try {
+        String scanid = getScanid(apiKey, url);
+
+        zapClientAPI.spider.scan(apiKey, url, null);
+
+        while (statusToInt(zapClientAPI.spider.status(scanid)) < 100)
+        {
+            try
+            {
                 Thread.sleep(1000);
-            } catch (InterruptedException e) {
+            } catch (InterruptedException e)
+            {
                 getLog().error(e.toString());
             }
         }
     }
 
-	private String getScanid(String apikey, String url)
-			throws ClientApiException {
-		ApiResponse resp = zapClientAPI.spider.scan(apikey, url, "");
+    private String getScanid(String apikey, String url) throws ClientApiException
+    {
+        ApiResponse resp = zapClientAPI.spider.scan(apikey, url, "");
 
-		// The scan now returns a scan id to support concurrent scanning
-		 String scanid = ((ApiResponseElement)resp).getValue();
-		return scanid;
-	}
+        // The scan now returns a scan id to support concurrent scanning
+        String scanid = ((ApiResponseElement) resp).getValue();
+        return scanid;
+    }
 
     /**
      * Scan all pages found at url
@@ -224,16 +216,20 @@ public class ProcessZAP extends AbstractMojo {
      * @param url the url to scan
      * @throws ClientApiException
      */
-    private void scanURL(String apikey, String url) throws ClientApiException {
-    	
-		String scanid = getScanid(apikey, url);
-		
-        zapClientAPI.ascan.scan(apikey, url, "true", "false", null);
+    private void scanURL(String url) throws ClientApiException
+    {
 
-        while ( statusToInt(zapClientAPI.ascan.status(scanid)) < 100) {
-            try {
+        String scanid = getScanid(apiKey, url);
+
+        zapClientAPI.ascan.scan(apiKey, url, "true", "false", "false");
+
+        while (statusToInt(zapClientAPI.ascan.status(scanid)) < 100)
+        {
+            try
+            {
                 Thread.sleep(1000);
-            } catch (InterruptedException e) {
+            } catch (InterruptedException e)
+            {
                 getLog().error(e.toString());
             }
         }
@@ -243,29 +239,32 @@ public class ProcessZAP extends AbstractMojo {
      * Get all alerts from ZAP proxy
      *
      * @param json true for json form, false for xml format
-     * @return  all alerts from ZAProxy
+     * @return all alerts from ZAProxy
      * @throws Exception
      */
-    private String getAllAlerts(boolean json) throws Exception {
+    private String getAllAlerts(final String format) throws Exception
+    {
         URL url;
         String result = "";
 
-        if (json) {
-            url = new URL("http://zap/json/core/view/alerts");
-        } else {
+        if (format.equalsIgnoreCase(XML_FORMAT) || format.equalsIgnoreCase(HTML_FORMAT) || format.equalsIgnoreCase(JSON_FORMAT))
+        {
+            url = new URL("http://zap/" + format + "/core/view/alerts");
+        } else
+        {
             url = new URL("http://zap/xml/core/view/alerts");
         }
 
         getLog().info("Open URL: " + url.toString());
 
-        HttpURLConnection uc = (HttpURLConnection) url.openConnection(proxy);
+        final HttpURLConnection uc = (HttpURLConnection) url.openConnection(proxy);
         uc.connect();
 
-        BufferedReader in = new BufferedReader(new InputStreamReader(
-                uc.getInputStream()));
+        final BufferedReader in = new BufferedReader(new InputStreamReader(uc.getInputStream()));
         String inputLine;
 
-        while ((inputLine = in.readLine()) != null) {
+        while ((inputLine = in.readLine()) != null)
+        {
             result = result + inputLine;
         }
 
@@ -275,34 +274,23 @@ public class ProcessZAP extends AbstractMojo {
     }
 
     /**
-     * Copies the html report from zap into the report directory
-     * @param filename the filename without extention where the report should be placed
+     * Get all alerts from ZAP proxy
+     *
+     * @param json true for json form, false for xml format
+     * @return all alerts from ZAProxy
      * @throws Exception
      */
-    private void writeHtmlReport(String filename) throws Exception {
-        String fullFileName = filename + ".html";
-        URL url = new URL("http://zap/html/core/view/alerts");
+    private String getAllAlertsFormat(final String format) throws Exception
+    {
 
-        getLog().info("Open URL: " + url.toString());
-
-        HttpURLConnection uc = (HttpURLConnection) url.openConnection(proxy);
-        uc.connect();
-
-        BufferedReader in = new BufferedReader(new InputStreamReader(
-                uc.getInputStream()));
-        FileWriter fstream = new FileWriter(fullFileName);
-
-        String line;
-        String content = "";
-
-        while ((line = in.readLine()) != null) {
-            content += line;
-            getLog().debug(line);
+        if (format.equalsIgnoreCase(XML_FORMAT) || format.equalsIgnoreCase(HTML_FORMAT) || format.equalsIgnoreCase(JSON_FORMAT))
+        {
+            return format;
+        } else
+        {
+            return XML_FORMAT;
         }
-        fstream.write(content);
 
-        fstream.close();
-        in.close();
     }
 
     /**
@@ -310,43 +298,54 @@ public class ProcessZAP extends AbstractMojo {
      *
      * @throws MojoExecutionException
      */
-    public void execute() throws MojoExecutionException {
-        if (skip) {
+    public void execute() throws MojoExecutionException
+    {
+
+        if (skip)
+        {
             getLog().info("Skipping zap exection");
             return;
         }
-        try {
 
-        	
+        try
+        {
+
             zapClientAPI = getZapClient();
             proxy = new Proxy(Proxy.Type.HTTP, new InetSocketAddress(zapProxyHost, zapProxyPort));
-			
-            if (spiderURL) {
-                getLog().info("Spider the site [" + targetURL + "] with apikey [" + apikey + "]");
-                spiderURL(apikey, targetURL);
-            } else {
+
+            if (spiderURL)
+            {
+                getLog().info("Spider the site [" + targetURL + "] with apikey [" + apiKey + "]");
+                spiderURL(targetURL);
+            } else
+            {
                 getLog().info("skip spidering the site [" + targetURL + "]");
             }
 
-            if (scanURL) {
-                getLog().info("Scan the site [" + targetURL + "] with apikey [" + apikey + "]");
-                scanURL(apikey, targetURL);
-            } else {
+            if (scanURL)
+            {
+                getLog().info("Scan the site [" + targetURL + "] with apikey [" + apiKey + "]");
+                scanURL(targetURL);
+            } else
+            {
                 getLog().info("skip scanning the site [" + targetURL + "]");
             }
 
             // filename to share between the session file and the report file
             String fileName = "";
-            if (saveSession) {
+            if (saveSession)
+            {
 
                 fileName = createTempFilename("ZAP", "");
 
-                zapClientAPI.core.saveSession(fileName, null, null);
-            } else {
+                zapClientAPI.core.saveSession(apiKey, fileName, "true");
+            } else
+            {
                 getLog().info("skip saveSession");
             }
 
-            if (reportAlerts) {
+            if (reportAlerts)
+            {
 
                 // reuse fileName of the session file
                 if ((fileName == null) || (fileName.length() == 0))
@@ -354,59 +353,86 @@ public class ProcessZAP extends AbstractMojo {
 
                 String fileName_no_extension = FilenameUtils.concat(reportsDirectory, fileName);
 
-                try {
-                    String alerts = getAllAlerts(true);
-                    JSON jsonObj = JSONSerializer.toJSON(alerts);
+                try
+                {
+                    String alerts = getAllAlerts(getAllAlertsFormat(format));
+                    final String fullFileName = fileName_no_extension + "." + getAllAlertsFormat(format);
+                    FileUtils.writeStringToFile(new File(fullFileName), alerts);
 
-                    writeXml(fileName_no_extension, jsonObj);
-                    writeHtmlReport(fileName_no_extension);
-                    if (JSON_FORMAT.equals(format)) {
-                        writeJson(fileName_no_extension, jsonObj);
-                    } else if (NONE_FORMAT.equals(format)) {
-                        getLog().info("Only XML report will be generated");
-                    } else {
-                        getLog().info("This format is not supported ["+format+"] ; please choose 'none' or 'json'");
-                    }
-                } catch (Exception e) {
+                    getLog().info("File save in format in [" + getAllAlertsFormat(format) + "]");
+                } catch (Exception e)
+                {
                     getLog().error(e.toString());
                     e.printStackTrace();
                 }
             }
 
-        } catch (Exception e) {
+        } catch (Exception e)
+        {
             getLog().error(e.toString());
             throw new MojoExecutionException("Processing with ZAP failed", e);
-        } finally {
-            if (shutdownZAP && (zapClientAPI != null)) {
-                try {
+        } finally
+        {
+            if (shutdownZAP && (zapClientAPI != null))
+            {
+                try
+                {
                     getLog().info("Shutdown ZAProxy");
                     zapClientAPI.core.shutdown("..");
-                } catch (Exception e) {
+                } catch (Exception e)
+                {
                     getLog().error(e.toString());
                     e.printStackTrace();
                 }
-            } else {
+            } else
+            {
                 getLog().info("No shutdown of ZAP");
             }
         }
     }
 
-    protected ClientApi getZapClient() {
+    protected ClientApi getZapClient()
+    {
         return new ClientApi(zapProxyHost, zapProxyPort);
     }
 
-    private void writeXml(String filename, JSON json) throws IOException {
-        String fullFileName = filename + ".xml";
-        XMLSerializer serializer = new XMLSerializer();
-        serializer.setArrayName("zap-report");
-        serializer.setElementName("alerts");
-        String xml = serializer.write(json);
-        FileUtils.writeStringToFile(new File(fullFileName), xml);
-    }
-
-    private void writeJson(String filename, JSON json) throws IOException {
-        String fullFileName = filename + ".json";
-        FileUtils.writeStringToFile(new File(fullFileName), json.toString());
-    }
-
+    /**
+     * Copies the html report from zap into the report directory
+     * 
+     * @param filename the filename without extention where the report should be placed
+     * @throws Exception
+     */
+    /*
+     * private void writeHtmlReport(String filename) throws Exception {
+     * String fullFileName = filename + ".html";
+     * URL url = new URL("http://zap/html/core/view/alerts");
+     * getLog().info("Open URL: " + url.toString());
+     * HttpURLConnection uc = (HttpURLConnection) url.openConnection(proxy);
+     * uc.connect();
+     * BufferedReader in = new BufferedReader(new InputStreamReader(
+     * uc.getInputStream()));
+     * FileWriter fstream = new FileWriter(fullFileName);
+     * String line;
+     * String content = "";
+     * while ((line = in.readLine()) != null) {
+     * content += line;
+     * getLog().debug(line);
+     * }
+     * fstream.write(content);
+     * fstream.close();
+     * in.close();
+     * }
+     * private void writeXml(String filename, JSON json) throws IOException {
+     * String fullFileName = filename + ".xml";
+     * XMLSerializer serializer = new XMLSerializer();
+     * serializer.setArrayName("zap-report");
+     * serializer.setElementName("alerts");
+     * String xml = serializer.write(json);
+     * FileUtils.writeStringToFile(new File(fullFileName), xml);
+     * }
+     * private void writeJson(String filename, JSON json) throws IOException {
+     * String fullFileName = filename + ".json";
+     * FileUtils.writeStringToFile(new File(fullFileName), json.toString());
+     * }
+     */
 }

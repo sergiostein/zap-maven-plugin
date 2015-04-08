@@ -15,108 +15,119 @@ package org.zaproxy.zapmavenplugin;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import java.io.File;
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
+import org.apache.maven.plugin.MojoFailureException;
+import org.apache.maven.plugins.annotations.LifecyclePhase;
+import org.apache.maven.plugins.annotations.Mojo;
+import org.apache.maven.plugins.annotations.Parameter;
 import org.zaproxy.clientapi.core.ClientApi;
 import org.zaproxy.clientapi.core.ClientApiException;
 
-
 /**
- * Goal which touches a timestamp file.
- *
- * @goal start-zap
- * @phase pre-integration-test
+ * Goal which will start ZAP proxy.
  */
-public class StartZAP
-    extends AbstractMojo
+@Mojo(name = "start-zap", defaultPhase = LifecyclePhase.PRE_INTEGRATION_TEST, threadSafe = true)
+public class StartZAP extends AbstractMojo
 {
     /**
-     * Location of the ZAProxy program.
-     * @parameter
-     * @required
+     * API KEY.
      */
-    private String zapProgram;
+    @Parameter(defaultValue = "ZAP-MAVEN-PLUGIN")
+    public String   apiKey;
+
+    /**
+     * Location of the ZAProxy program.
+     */
+    @Parameter(required = true)
+    private String  zapProgram;
 
     /**
      * Location of the host of the ZAP proxy
-     * @parameter default-value="localhost"
-     * @required
      */
-    private String zapProxyHost;
+    @Parameter(defaultValue = "localhost", required = true)
+    private String  zapProxyHost;
 
     /**
      * Location of the port of the ZAP proxy
-     * @parameter default-value="8080"
-     * @required
      */
-    private int zapProxyPort;
+    @Parameter(defaultValue = "8080", required = true)
+    private int     zapProxyPort;
 
     /**
      * New session when you don't want to start ZAProxy.
-     * @parameter default-value="false"
      */
+    @Parameter(defaultValue = "false")
     private boolean newSession;
 
     /**
      * Sleep to wait to start ZAProxy
-     * @parameter default-value="4000"
      */
-    private int zapSleep;
+    @Parameter(defaultValue = "4000")
+    private int     zapSleep;
 
     /**
      * Set the plugin to skip its execution.
-     *
-     * @parameter default-value="false"
      */
+    @Parameter(defaultValue = "false")
     private boolean skip;
 
-    public void execute()
-        throws MojoExecutionException
+    // @Override
+    public void execute() throws MojoExecutionException, MojoFailureException
     {
-        if (skip) {
+        if (skip)
+        {
             getLog().info("Skipping zap execution");
             return;
         }
-        try {
-            if (newSession) {
+        try
+        {
+            if (newSession)
+            {
                 startNewSessionOnRunningClient();
-            } else {
+            } else
+            {
                 final Process ps = startZap();
 
                 logZapProcess(ps);
 
             }
+            Thread.currentThread();
             Thread.sleep(zapSleep);
-        } catch(Exception e) {
-                e.printStackTrace();
-                throw new MojoExecutionException("Unable to start ZAP [" + zapProgram + "]");
+        } catch (Exception e)
+        {
+            e.printStackTrace();
+            throw new MojoExecutionException("Unable to start ZAP [" + zapProgram + "]");
         }
 
     }
 
-    protected Runtime getRuntime() {
+    protected Runtime getRuntime()
+    {
         Runtime runtime = java.lang.Runtime.getRuntime();
         return runtime;
     }
 
-    protected ClientApi getZapClient() {
+    protected ClientApi getZapClient()
+    {
         return new ClientApi(zapProxyHost, zapProxyPort);
     }
 
-    private void startNewSessionOnRunningClient() throws IOException,
-            ClientApiException {
+    private void startNewSessionOnRunningClient() throws IOException, ClientApiException
+    {
         ClientApi zapClient = getZapClient();
         File tempFile = File.createTempFile("ZAP", null);
         getLog().info("Create Session with temporary file [" + tempFile.getPath() + "]");
-        zapClient.core.newSession(tempFile.getPath(), null, null);
+        zapClient.core.newSession(apiKey, "zap-maven-plugin", tempFile.getPath());
     }
 
-    private Process startZap() throws IOException {
+    private Process startZap() throws IOException
+    {
         File pf = new File(zapProgram);
         Runtime runtime = getRuntime();
         getLog().info("Start ZAProxy [" + zapProgram + "]");
@@ -125,46 +136,79 @@ public class StartZAP
         return ps;
     }
 
-    private void logZapProcess(final Process ps) {
+    private void logZapProcess(final Process ps)
+    {
         logNormalOutput(ps);
 
         logErrorOutput(ps);
     }
 
-    private void logErrorOutput(final Process ps) {
-        new Thread() {
-            public void run() {
-                try {
-                    BufferedReader reader = new BufferedReader(new InputStreamReader(ps.getErrorStream()));
-                    String line = "";
-                    try {
-                        while((line = reader.readLine()) != null) {
-                            getLog().info(line);
+    private void logErrorOutput(final Process ps)
+    {
+        // Consommation de la sortie standard de l'application externe dans un
+        // Thread separe
+        new Thread()
+        {
+            @Override
+            public void run()
+            {
+                try
+                {
+                    if (ps != null)
+                    {
+                        BufferedReader reader = new BufferedReader(new InputStreamReader(ps.getErrorStream()));
+                        String line = "";
+                        try
+                        {
+                            while ((line = reader.readLine()) != null)
+                            {
+                                // Traitement du flux de sortie de l'application si
+                                // besoin est
+                                getLog().info(line);
+                            }
+                        } finally
+                        {
+                            reader.close();
                         }
-                    } finally {
-                        reader.close();
                     }
-                } catch(Exception e) {
+                } catch (Exception e)
+                {
                     e.printStackTrace();
                 }
             }
         }.start();
     }
 
-    private void logNormalOutput(final Process ps) {
-        new Thread() {
-            public void run() {
-                try {
-                    BufferedReader reader = new BufferedReader(new InputStreamReader(ps.getInputStream()));
-                    String line = "";
-                    try {
-                        while((line = reader.readLine()) != null) {
-                            getLog().info(line);
+    private void logNormalOutput(final Process ps)
+    {
+        // Consommation de la sortie d'erreur de l'application externe dans un
+        // Thread separe
+        new Thread()
+        {
+            @Override
+            public void run()
+            {
+                try
+                {
+                    if (ps != null)
+                    {
+                        BufferedReader reader = new BufferedReader(new InputStreamReader(ps.getInputStream()));
+                        String line = "";
+                        try
+                        {
+                            while ((line = reader.readLine()) != null)
+                            {
+                                // Traitement du flux d'erreur de l'application si
+                                // besoin est
+                                getLog().info(line);
+                            }
+                        } finally
+                        {
+                            reader.close();
                         }
-                    } finally {
-                        reader.close();
                     }
-                } catch(Exception e) {
+                } catch (Exception e)
+                {
                     e.printStackTrace();
                 }
             }
