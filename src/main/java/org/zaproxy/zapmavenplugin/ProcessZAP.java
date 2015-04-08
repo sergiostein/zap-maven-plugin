@@ -38,7 +38,7 @@ import org.zaproxy.clientapi.core.ClientApiException;
 /**
  * Goal which touches a timestamp file.
  */
-@Mojo(name = "process-zap", defaultPhase = LifecyclePhase.POST_INTEGRATION_TEST, threadSafe = true)
+@Mojo(name = "process-zap", defaultPhase = LifecyclePhase.INTEGRATION_TEST, threadSafe = true)
 public class ProcessZAP extends AbstractMojo
 {
     private static final String NONE_FORMAT = "none";
@@ -244,11 +244,13 @@ public class ProcessZAP extends AbstractMojo
             // The scan now returns a scan id to support concurrent scanning
             String scanid = ((ApiResponseElement) resp).getValue();
 
-/*            if (!"OK".equals(((ApiResponseElement) resp).getValue()))
-            {
-                System.out.println("Failed to Active Scan target : " + resp.toString(0));
-                return;
-            }*/
+            /*
+             * if (!"OK".equals(((ApiResponseElement) resp).getValue()))
+             * {
+             * System.out.println("Failed to Active Scan target : " + resp.toString(0));
+             * return;
+             * }
+             */
 
             int progress;
 
@@ -256,7 +258,7 @@ public class ProcessZAP extends AbstractMojo
             while (true)
             {
                 Thread.sleep(5000);
-                progress = Integer.parseInt(((ApiResponseElement) zapClientAPI.ascan.status(scanid)).getValue());
+                progress = statusToInt((ApiResponseElement) zapClientAPI.ascan.status(scanid));
                 System.out.println("Active Scan progress : " + progress + "%");
                 if (progress >= 100)
                 {
