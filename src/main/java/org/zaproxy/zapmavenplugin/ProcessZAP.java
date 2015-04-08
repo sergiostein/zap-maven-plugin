@@ -185,29 +185,47 @@ public class ProcessZAP extends AbstractMojo
     private void spiderURL(String url) throws ClientApiException
     {
 
-        String scanid = getScanid(apiKey, url);
-
-        zapClientAPI.spider.scan(apiKey, url, null);
-
-        while (statusToInt(zapClientAPI.spider.status(scanid)) < 100)
+        try
         {
-            try
+            ApiResponse resp = zapClientAPI.spider.scan(apiKey, url, null);
+
+            // The scan now returns a scan id to support concurrent scanning
+            String scanid = ((ApiResponseElement) resp).getValue();
+
+            int progress;
+
+            // Poll the status until it completes
+            while (true)
             {
                 Thread.sleep(1000);
-            } catch (InterruptedException e)
-            {
-                getLog().error(e.toString());
+                progress = statusToInt((ApiResponseElement) zapClientAPI.spider.status(scanid));
+                getLog().info("Spider progress : " + progress + "%");
+                if (progress >= 100)
+                {
+                    break;
+                }
             }
+            getLog().info("Spider complete");
+
+            // Give the passive scanner a chance to complete
+            Thread.sleep(2000);
+
+            while (statusToInt(zapClientAPI.spider.status(scanid)) < 100)
+            {
+                try
+                {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e)
+                {
+
+                }
+            }
+
+        } catch (Exception e)
+        {
+            getLog().error("Exception : " + e.getMessage());
+            e.printStackTrace();
         }
-    }
-
-    private String getScanid(String apikey, String url) throws ClientApiException
-    {
-        ApiResponse resp = zapClientAPI.spider.scan(apikey, url, "");
-
-        // The scan now returns a scan id to support concurrent scanning
-        String scanid = ((ApiResponseElement) resp).getValue();
-        return scanid;
     }
 
     /**
@@ -219,19 +237,41 @@ public class ProcessZAP extends AbstractMojo
     private void scanURL(String url) throws ClientApiException
     {
 
-        String scanid = getScanid(apiKey, url);
-
-        zapClientAPI.ascan.scan(apiKey, url, "true", "false", "false");
-
-        while (statusToInt(zapClientAPI.ascan.status(scanid)) < 100)
+        try
         {
-            try
+            ApiResponse resp = zapClientAPI.ascan.scan(apiKey, url, "true", "false", "");
+
+            // The scan now returns a scan id to support concurrent scanning
+            String scanid = ((ApiResponseElement) resp).getValue();
+
+            if (!"OK".equals(((ApiResponseElement) resp).getValue()))
             {
-                Thread.sleep(1000);
-            } catch (InterruptedException e)
-            {
-                getLog().error(e.toString());
+                System.out.println("Failed to Active Scan target : " + resp.toString(0));
+                return;
             }
+
+            int progress;
+
+            // Poll the status until it completes
+            while (true)
+            {
+                Thread.sleep(5000);
+                progress = Integer.parseInt(((ApiResponseElement) zapClientAPI.ascan.status("")).getValue());
+                System.out.println("Active Scan progress : " + progress + "%");
+                if (progress >= 100)
+                {
+                    break;
+                }
+            }
+
+            getLog().info("Active Scan complete");
+
+            getLog().info("Alerts:");
+            getLog().info(new String(zapClientAPI.core.xmlreport(apiKey)));
+        } catch (Exception e)
+        {
+            getLog().error("Exception : " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
@@ -378,7 +418,7 @@ public class ProcessZAP extends AbstractMojo
                 try
                 {
                     getLog().info("Shutdown ZAProxy");
-                    zapClientAPI.core.shutdown("..");
+                    zapClientAPI.core.shutdown(apiKey);
                 } catch (Exception e)
                 {
                     getLog().error(e.toString());
@@ -396,43 +436,4 @@ public class ProcessZAP extends AbstractMojo
         return new ClientApi(zapProxyHost, zapProxyPort);
     }
 
-    /**
-     * Copies the html report from zap into the report directory
-     * 
-     * @param filename the filename without extention where the report should be placed
-     * @throws Exception
-     */
-    /*
-     * private void writeHtmlReport(String filename) throws Exception {
-     * String fullFileName = filename + ".html";
-     * URL url = new URL("http://zap/html/core/view/alerts");
-     * getLog().info("Open URL: " + url.toString());
-     * HttpURLConnection uc = (HttpURLConnection) url.openConnection(proxy);
-     * uc.connect();
-     * BufferedReader in = new BufferedReader(new InputStreamReader(
-     * uc.getInputStream()));
-     * FileWriter fstream = new FileWriter(fullFileName);
-     * String line;
-     * String content = "";
-     * while ((line = in.readLine()) != null) {
-     * content += line;
-     * getLog().debug(line);
-     * }
-     * fstream.write(content);
-     * fstream.close();
-     * in.close();
-     * }
-     * private void writeXml(String filename, JSON json) throws IOException {
-     * String fullFileName = filename + ".xml";
-     * XMLSerializer serializer = new XMLSerializer();
-     * serializer.setArrayName("zap-report");
-     * serializer.setElementName("alerts");
-     * String xml = serializer.write(json);
-     * FileUtils.writeStringToFile(new File(fullFileName), xml);
-     * }
-     * private void writeJson(String filename, JSON json) throws IOException {
-     * String fullFileName = filename + ".json";
-     * FileUtils.writeStringToFile(new File(fullFileName), json.toString());
-     * }
-     */
 }
