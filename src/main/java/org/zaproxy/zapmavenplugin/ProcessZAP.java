@@ -244,11 +244,11 @@ public class ProcessZAP extends AbstractMojo
             // The scan now returns a scan id to support concurrent scanning
             String scanid = ((ApiResponseElement) resp).getValue();
 
-            if (!"OK".equals(((ApiResponseElement) resp).getValue()))
+/*            if (!"OK".equals(((ApiResponseElement) resp).getValue()))
             {
                 System.out.println("Failed to Active Scan target : " + resp.toString(0));
                 return;
-            }
+            }*/
 
             int progress;
 
@@ -256,7 +256,7 @@ public class ProcessZAP extends AbstractMojo
             while (true)
             {
                 Thread.sleep(5000);
-                progress = Integer.parseInt(((ApiResponseElement) zapClientAPI.ascan.status("")).getValue());
+                progress = Integer.parseInt(((ApiResponseElement) zapClientAPI.ascan.status(scanid)).getValue());
                 System.out.println("Active Scan progress : " + progress + "%");
                 if (progress >= 100)
                 {
