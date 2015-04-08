@@ -77,6 +77,14 @@ public class ProcessZAP extends AbstractMojo {
     private String targetURL;
 
     /**
+     * API token of the ZAP proxy
+     * Change this if you have set the apikey in ZAP via Options / API
+     *
+     * @parameter default-value=""
+     */
+    private String apikey;
+    
+    /**
      * Switch to spider the URL
      *
      * @parameter default-value="true"
@@ -186,10 +194,13 @@ public class ProcessZAP extends AbstractMojo {
      * @param url the to investigate URL
      * @throws ClientApiException
      */
-    private void spiderURL(String url) throws ClientApiException {
-        zapClientAPI.spider.scan(url, null);
+    private void spiderURL(String apikey, String url) throws ClientApiException {
+    	
+		String scanid = getScanid(apikey, url);
+		
+        zapClientAPI.spider.scan(apikey, url, null);
 
-        while ( statusToInt(zapClientAPI.spider.status()) < 100) {
+        while ( statusToInt(zapClientAPI.spider.status(scanid)) < 100) {
             try {
                 Thread.sleep(1000);
             } catch (InterruptedException e) {
@@ -198,16 +209,28 @@ public class ProcessZAP extends AbstractMojo {
         }
     }
 
+	private String getScanid(String apikey, String url)
+			throws ClientApiException {
+		ApiResponse resp = zapClientAPI.spider.scan(apikey, url, "");
+
+		// The scan now returns a scan id to support concurrent scanning
+		 String scanid = ((ApiResponseElement)resp).getValue();
+		return scanid;
+	}
+
     /**
      * Scan all pages found at url
      *
      * @param url the url to scan
      * @throws ClientApiException
      */
-    private void scanURL(String url) throws ClientApiException {
-        zapClientAPI.ascan.scan(url, "true", "false", null);
+    private void scanURL(String apikey, String url) throws ClientApiException {
+    	
+		String scanid = getScanid(apikey, url);
+		
+        zapClientAPI.ascan.scan(apikey, url, "true", "false", null);
 
-        while ( statusToInt(zapClientAPI.ascan.status()) < 100) {
+        while ( statusToInt(zapClientAPI.ascan.status(scanid)) < 100) {
             try {
                 Thread.sleep(1000);
             } catch (InterruptedException e) {
@@ -294,19 +317,20 @@ public class ProcessZAP extends AbstractMojo {
         }
         try {
 
+        	
             zapClientAPI = getZapClient();
             proxy = new Proxy(Proxy.Type.HTTP, new InetSocketAddress(zapProxyHost, zapProxyPort));
-
+			
             if (spiderURL) {
-                getLog().info("Spider the site [" + targetURL + "]");
-                spiderURL(targetURL);
+                getLog().info("Spider the site [" + targetURL + "] with apikey [" + apikey + "]");
+                spiderURL(apikey, targetURL);
             } else {
                 getLog().info("skip spidering the site [" + targetURL + "]");
             }
 
             if (scanURL) {
-                getLog().info("Scan the site [" + targetURL + "]");
-                scanURL(targetURL);
+                getLog().info("Scan the site [" + targetURL + "] with apikey [" + apikey + "]");
+                scanURL(apikey, targetURL);
             } else {
                 getLog().info("skip scanning the site [" + targetURL + "]");
             }

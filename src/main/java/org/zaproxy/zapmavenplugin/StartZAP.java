@@ -79,7 +79,7 @@ public class StartZAP
         throws MojoExecutionException
     {
         if (skip) {
-            getLog().info("Skipping zap exection");
+            getLog().info("Skipping zap execution");
             return;
         }
         try {

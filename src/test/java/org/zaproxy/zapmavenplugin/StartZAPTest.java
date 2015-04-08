@@ -29,7 +29,7 @@ public class StartZAPTest {
     private static final boolean NEW_SESSION = true;
     private static final boolean NO_NEW_SESSION = false;
     private static final String ZAP_PROXY_HOST = "ZAP_PROXY_HOST";
-    private static final int ZAP_PROXY_PORT = 8080;
+    private static final int ZAP_PROXY_PORT = 8090;
     private static final int ZAP_SLEEP = 0;
 
     final ClientApi clientApi = new ClientApi(ZAP_PROXY_HOST, ZAP_PROXY_PORT);
@@ -88,7 +88,7 @@ public class StartZAPTest {
 
     private Core prepareCoreForNewSession() throws ClientApiException {
         Core coreMock = EasyMock.createMock(Core.class);
-        EasyMock.expect(coreMock.newSession(EasyMock.anyString(), null, null)).andReturn(ApiResponseElement.OK);
+        EasyMock.expect(coreMock.newSession(EasyMock.anyString(), EasyMock.anyString(), EasyMock.anyString())).andReturn(ApiResponseElement.OK);
         clientApi.core = coreMock;
         return coreMock;
     }

@@ -16,7 +16,7 @@ import org.zaproxy.clientapi.core.ClientApi;
 public class ProcessZAPTest {
 
     private static final String ZAP_PROXY_HOST = "ZAP_PROXY_HOST";
-    private static final int ZAP_PROXY_PORT = 8080;
+    private static final int ZAP_PROXY_PORT = 8090;
 
     final ClientApi clientApi = new ClientApi(ZAP_PROXY_HOST, ZAP_PROXY_PORT);
 
