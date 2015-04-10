@@ -23,6 +23,7 @@ This project is used to test zap-maven-plugin
 #### Jenkins project
 
 https://wiki.jenkins-ci.org/display/JENKINS/Zapper+Plugin
+
 https://github.com/parrot55/zap-plugin
 
 #### Similar project
@@ -30,5 +31,6 @@ https://github.com/parrot55/zap-plugin
 Please follow :
 
 https://code.google.com/r/bmrosantos-zap-maven-plugin
+
 https://github.com/TeamPraxis/grunt-zaproxy
 
