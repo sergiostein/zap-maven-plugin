@@ -5,11 +5,7 @@ zap-maven-plugin
 
 Dependency Status using [versioneye](https://www.versioneye.com/users/AlbanAndrieu)
 
-<--versioneye-->
 [![Dependency Status](https://www.versioneye.com/user/projects/55279e012ced4f5816000583/badge.svg?style=flat)](https://www.versioneye.com/user/projects/55279e012ced4f5816000583/visual)
-
-<--central-->
-[![Maven Central](https://maven-badges.herokuapp.com/maven-central/org.pitest/pitest/badge.svg?style=flat)](https://maven-badges.herokuapp.com/maven-central/org.pitest/pitest)
 
 This is a Maven Plugin to control ZAProxy. It is based on https://code.google.com/p/zap-maven-plugin.
 
