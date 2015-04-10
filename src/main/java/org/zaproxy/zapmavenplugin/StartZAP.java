@@ -56,7 +56,7 @@ public class StartZAP extends AbstractMojo
     /**
      * Location of the port of the ZAP proxy
      */
-    @Parameter(defaultValue = "8080", required = true)
+    @Parameter(defaultValue = "8090", required = true)
     private int     zapProxyPort;
 
     /**

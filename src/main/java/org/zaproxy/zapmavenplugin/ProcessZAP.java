@@ -68,7 +68,7 @@ public class ProcessZAP extends AbstractMojo
     /**
      * Location of the port of the ZAP proxy
      */
-    @Parameter(defaultValue = "8080", required = true)
+    @Parameter(defaultValue = "8090", required = true)
     private int                 zapProxyPort;
 
     /**
@@ -289,12 +289,15 @@ public class ProcessZAP extends AbstractMojo
         URL url;
         String result = "";
 
+        // String url_base = "http://" + zapProxyHost + ":" + zapProxyPort;
+        String url_base = "http://zap";
+
         if (format.equalsIgnoreCase(XML_FORMAT) || format.equalsIgnoreCase(HTML_FORMAT) || format.equalsIgnoreCase(JSON_FORMAT))
         {
-            url = new URL("http://zap/" + format + "/core/view/alerts");
+            url = new URL(url_base + "/" + format + "/core/view/alerts");
         } else
         {
-            url = new URL("http://zap/xml/core/view/alerts");
+            url = new URL(url_base + "/xml/core/view/alerts");
         }
 
         getLog().info("Open URL: " + url.toString());
