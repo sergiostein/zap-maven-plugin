@@ -7,11 +7,10 @@
 	<packaging>maven-plugin</packaging>
 	<version>1.6-SNAPSHOT</version>
 	<name>zap-maven-plugin Maven Mojo</name>
-
-	<url>https://code.google.com/p/zap-maven-plugin/</url>
+	<url>https://github.com/AlbanAndrieu/zap-maven-plugin</url>
 
 	<properties>
-		<zapApiPath>/workspace/users/albandri30/zaproxy-read-only/build/zap/zap-api-v2-4.jar</zapApiPath>
+		<zapApiPath>/workspace/divers/zaproxy-read-only/build/zap/zap-api-v2-4.jar</zapApiPath>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 		
