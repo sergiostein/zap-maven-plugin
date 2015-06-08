@@ -19,6 +19,10 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.text.SimpleDateFormat;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.List;
 
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
@@ -26,8 +30,12 @@ import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
+import org.zaproxy.clientapi.core.ApiResponseElement;
+import org.zaproxy.clientapi.core.ApiResponseList;
+import org.zaproxy.clientapi.core.ApiResponseSet;
 import org.zaproxy.clientapi.core.ClientApi;
 import org.zaproxy.clientapi.core.ClientApiException;
+import org.zaproxy.clientapi.gen.Users;
 
 /**
  * Goal which will start ZAP proxy.
@@ -76,54 +84,165 @@ public class StartZAP extends AbstractMojo
      */
     @Parameter(defaultValue = "false")
     private boolean skip;
+    
+	
+	/**
+	 * An optional defined directory for this session
+	 */
+	@Parameter (required = true, defaultValue = "/")
+	private String sessionDirectory;
+	
+
+	/**
+	 * An optional name for this session
+	 */
+	@Parameter(required = true, defaultValue = "zapSession")
+	private String sessionName;
+	
+
+	/**
+	 * Contexts to be used
+	 */
+	@Parameter(defaultValue = "")
+	private List<Context> contexts;
+	
+
+	/**
+	 * List of users for different logins
+	 */
+	@Parameter(defaultValue = "")
+	private List<ZAPUser> zapUsers;
+
+	/**
+	 * URL Test Target URL
+	 */
+	@Parameter(required = true)
+	private String targetURL;
+
 
     // @Override
     public void execute() throws MojoExecutionException, MojoFailureException
-    {
-        if (skip)
-        {
-            getLog().info("Skipping zap execution");
-            return;
-        }
-        try
-        {
-            if (newSession)
-            {
-                startNewSessionOnRunningClient();
-            } else
-            {
-                final Process ps = startZap();
+ {
+		if (skip) {
+			getLog().info("Skipping zap execution");
+			return;
+		}
+		try {
+			if (newSession) {
+				startNewSessionOnRunningClient();
+			} else {
+				final Process ps = startZap();
+				logZapProcess(ps);
+			}
+			Thread.currentThread();
+			Thread.sleep(zapSleep);
+		} catch (Exception e) {
+			e.printStackTrace();
+			throw new MojoExecutionException("Unable to start ZAP ["
+					+ zapProgram + "]");
+		}
 
-                logZapProcess(ps);
-
-            }
-            Thread.currentThread();
-            Thread.sleep(zapSleep);
-        } catch (Exception e)
-        {
-            e.printStackTrace();
-            throw new MojoExecutionException("Unable to start ZAP [" + zapProgram + "]");
-        }
-
-    }
+	}
 
     protected Runtime getRuntime()
     {
         Runtime runtime = java.lang.Runtime.getRuntime();
         return runtime;
     }
+    
+    private String getDate() {
+		SimpleDateFormat dt = new SimpleDateFormat("yyyyy-mm-dd_hh-mm-ss");
+		Date date = new Date();
+		return dt.format(date);
+	}
 
     protected ClientApi getZapClient()
     {
         return new ClientApi(zapProxyHost, zapProxyPort);
     }
+    
+	private String getAuthencicationParams(Context context) {
 
-    private void startNewSessionOnRunningClient() throws IOException, ClientApiException
+		return "loginUrl=" + targetURL + "&"
+				+ context.getContextAuthenticationLoginUrl()
+				+ "&loginRequestData="
+				+ context.getContextAuthenticationLoginUsernameTag()
+				+ "&loginRequestData="
+				+ context.getContextAuthenticationLoginUsernameTag()
+				+ "={%username%}"
+				+ context.getContextAuthenticationLoginPasswordTag()
+				+ "={%password%}";
+	}
+
+	private int getContextId(ClientApi zapClient, String contextName)
+			throws ClientApiException {
+		String contexts = ((ApiResponseElement) zapClient.context.contextList())
+				.getValue();
+		if (contexts.contains(contextName)) {
+			List<String> contextArray = Arrays.asList(contexts.replaceAll(
+					"[\\[\\] ]", "").split(","));
+			return contextArray.indexOf(contextName) + 1;
+		}
+		return 0;
+	}
+
+    private void startNewSessionOnRunningClient() throws IOException, ClientApiException, MojoExecutionException
     {
-        ClientApi zapClient = getZapClient();
-        File tempFile = File.createTempFile("ZAP", null);
-        getLog().info("Create Session with temporary file [" + tempFile.getPath() + "]");
-        zapClient.core.newSession(apiKey, "zap-maven-plugin", tempFile.getPath());
+    	try {
+    		ClientApi zapClient = getZapClient();
+			zapClient.core.newSession(apiKey, sessionDirectory
+					+ sessionName + getDate(), "true");
+			int id = 1;
+			if (null != contexts && !contexts.isEmpty()) {
+				getLog().info("Create new Contexts");
+				for (Context context : contexts) {
+					id++;
+					String authenticationParams = getAuthencicationParams(context);
+					zapClient.context.newContext(apiKey,
+							context.getContextName());
+					zapClient.authentication.setAuthenticationMethod(
+							apiKey, String.valueOf(id),
+							context.getContextAuthenticationMethod(),
+							authenticationParams);
+					zapClient.authentication.setLoggedOutIndicator(apiKey,
+							String.valueOf(id),
+							context.getContextLoggedOutIndicator());
+					context.setContextId(getContextId(zapClient,
+							context.getContextName()));
+					if (null != context.getContextIncludeRegex()
+							&& !context.getContextIncludeRegex().isEmpty()) {
+						zapClient.context.includeInContext(apiKey,
+								context.getContextName(),
+								context.getContextIncludeRegex());
+					}
+					if (null != context.getContextExcludeRegex()
+							&& !context.getContextExcludeRegex().isEmpty()) {
+						zapClient.context.excludeFromContext(apiKey,
+								context.getContextName(),
+								context.getContextExcludeRegex());
+					}
+				}
+				if (null != zapUsers && !zapUsers.isEmpty()) {
+					getLog().info("Create new Users");
+					Users users = zapClient.users;
+					for (ZAPUser zapUser : zapUsers) {
+						String contextId = String.valueOf(getContextId(
+								zapClient, zapUser.getUserContext()));
+						users.newUser(apiKey, contextId, zapUser.getUser());
+						String userId = ((ApiResponseSet) (((ApiResponseList) users
+								.usersList(contextId)).getItems().get(0)))
+								.getAttribute("id");
+						users.setUserEnabled(apiKey, contextId, userId,
+								"true");
+						users.setAuthenticationCredentials(apiKey,
+								contextId, userId, zapUser.getUserParams());
+					}
+				}
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			throw new MojoExecutionException("Unable to start new Session");
+		}
     }
 
     private Process startZap() throws IOException
