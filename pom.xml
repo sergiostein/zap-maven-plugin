@@ -8,9 +8,15 @@
 	<version>1.6-SNAPSHOT</version>
 	<name>zap-maven-plugin Maven Mojo</name>
 	<url>https://github.com/AlbanAndrieu/zap-maven-plugin</url>
+	<repositories>
+	<repository>
+			<id>project.local</id>
+			<name>project</name>
+			<url>file:${project.basedir}/lib</url>
+		</repository>
+	</repositories>
 
 	<properties>
-		<zapApiPath>/workspace/divers/zaproxy-read-only/build/zap/zap-api-v2-4.jar</zapApiPath>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 		
@@ -95,11 +101,9 @@
 			<version>2.2.1</version>
 		</dependency>
 		<dependency>
-			<groupId>org.owasp.zaproxy</groupId>
-			<artifactId>clientapi</artifactId>
-			<version>2.4</version>
-			<scope>system</scope>
-			<systemPath>${zapApiPath}</systemPath>
+			<groupId>org.zaproxy</groupId>
+			<artifactId>clientApi</artifactId>
+			<version>2.4.0.1</version>
 		</dependency>
 		<dependency>
 			<groupId>commons-io</groupId>
